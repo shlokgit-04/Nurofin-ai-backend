@@ -33,6 +33,8 @@ class Project(Base):
     priority = Column(Enum(ProjectPriorityEnum), default=ProjectPriorityEnum.medium)
     progress = Column(Float, default=0.0) # Percentage 0-100
     git_url = Column(String)
+    budget = Column(Float, default=0.0)
+    spending = Column(Float, default=0.0)
     
     owner_id = Column(Integer, ForeignKey("user.id"))
     owner = relationship("User", back_populates="owned_projects")

@@ -83,8 +83,12 @@ async def update_meeting(
         setattr(meeting, field, value)
         
     await db.commit()
-    await db.refresh(meeting)
-    return success_response(data=MeetingSchema.from_orm(meeting).dict(), message="Event updated")
+    
+    # Reload with relationships to avoid lazy loading issues in serialization
+    res = await db.execute(select(Meeting).options(selectinload(Meeting.owner), selectinload(Meeting.participants)).filter(Meeting.id == id))
+    meeting_loaded = res.scalars().first()
+    
+    return success_response(data=MeetingSchema.from_orm(meeting_loaded).dict(), message="Event updated")
 
 @router.delete("/{id}", response_model=APIResponse)
 async def delete_meeting(

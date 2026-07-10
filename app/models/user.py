@@ -29,3 +29,11 @@ class User(Base):
     owned_projects = relationship("Project", back_populates="owner")
     assigned_tasks = relationship("Task", foreign_keys="Task.assigned_to_id", back_populates="assigned_to")
     created_tasks = relationship("Task", foreign_keys="Task.assigned_by_id", back_populates="assigned_by")
+
+    @property
+    def name(self):
+        return self.full_name
+
+    @property
+    def avatar(self):
+        return self.profile_picture

@@ -30,6 +30,26 @@ async def read_tasks(
     data = [TaskSchema.from_orm(t).dict() for t in tasks]
     return success_response(data=data, message="Tasks retrieved successfully")
 
+async def update_project_progress(db: AsyncSession, project_id: int):
+    from app.models.project import Project
+    
+    # 1. Get all tasks for this project
+    result = await db.execute(select(Task).filter(Task.project_id == project_id, Task.is_deleted == False))
+    tasks = result.scalars().all()
+    
+    if not tasks:
+        progress = 0.0
+    else:
+        completed_tasks = [t for t in tasks if t.status == "completed"]
+        progress = (len(completed_tasks) / len(tasks)) * 100.0
+        
+    # 2. Get project and update progress
+    proj_result = await db.execute(select(Project).filter(Project.id == project_id))
+    project = proj_result.scalars().first()
+    if project:
+        project.progress = progress
+        await db.commit()
+
 @router.post("", response_model=APIResponse)
 async def create_task(
     *,
@@ -44,6 +64,10 @@ async def create_task(
         await db.commit()
         await db.refresh(db_task)
         
+        # Recalculate project progress
+        if db_task.project_id:
+            await update_project_progress(db, db_task.project_id)
+            
         # Reload with relationships
         res = await db.execute(select(Task).options(selectinload(Task.assigned_to), selectinload(Task.assigned_by)).filter(Task.id == db_task.id))
         db_task_loaded = res.scalars().first()
@@ -71,13 +95,24 @@ async def update_task(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
         
+    old_project_id = task.project_id
     update_data = task_in.dict(exclude_unset=True)
     for field, value in update_data.items():
         setattr(task, field, value)
         
     await db.commit()
-    await db.refresh(task)
-    return success_response(data=TaskSchema.from_orm(task).dict(), message="Task updated")
+    
+    # Recalculate progress for new and old projects
+    if task.project_id:
+        await update_project_progress(db, task.project_id)
+    if old_project_id and old_project_id != task.project_id:
+        await update_project_progress(db, old_project_id)
+        
+    # Reload with relationships to avoid lazy loading issues in serialization
+    res = await db.execute(select(Task).options(selectinload(Task.assigned_to), selectinload(Task.assigned_by)).filter(Task.id == id))
+    task_loaded = res.scalars().first()
+    
+    return success_response(data=TaskSchema.from_orm(task_loaded).dict(), message="Task updated")
 
 @router.delete("/{id}", response_model=APIResponse)
 async def delete_task(
@@ -91,6 +126,12 @@ async def delete_task(
     if not task:
         return error_response(message="Task not found", status_code=404)
         
+    project_id = task.project_id
     task.is_deleted = True
     await db.commit()
+    
+    # Recalculate project progress
+    if project_id:
+        await update_project_progress(db, project_id)
+        
     return success_response(message="Task deleted")
