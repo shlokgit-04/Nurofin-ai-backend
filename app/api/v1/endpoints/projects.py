@@ -22,7 +22,7 @@ async def read_projects(
     # Get projects where user is owner or member
     result = await db.execute(
         select(Project)
-        .options(selectinload(Project.members), selectinload(Project.owner))
+        .options(selectinload(Project.members), selectinload(Project.owner), selectinload(Project.tasks))
         .filter(Project.is_deleted == False)
         .offset(skip)
         .limit(limit)
@@ -44,10 +44,17 @@ async def create_project(
     db_project = Project(**project_data, owner_id=current_user.id)
     db.add(db_project)
     await db.commit()
-    await db.refresh(db_project)
+    
+    # Eager load relationships before serialization
+    result = await db.execute(
+        select(Project)
+        .options(selectinload(Project.members), selectinload(Project.owner), selectinload(Project.tasks))
+        .filter(Project.id == db_project.id)
+    )
+    db_project_loaded = result.scalars().first()
     
     return success_response(
-        data=ProjectSchema.from_orm(db_project).dict(),
+        data=ProjectSchema.from_orm(db_project_loaded).dict(),
         message="Project created successfully"
     )
 
@@ -69,8 +76,16 @@ async def update_project(
         setattr(project, field, value)
         
     await db.commit()
-    await db.refresh(project)
-    return success_response(data=ProjectSchema.from_orm(project).dict(), message="Project updated")
+    
+    # Eager load relationships again to ensure clean serialization after commit
+    result = await db.execute(
+        select(Project)
+        .options(selectinload(Project.members), selectinload(Project.owner), selectinload(Project.tasks))
+        .filter(Project.id == id)
+    )
+    project_loaded = result.scalars().first()
+    
+    return success_response(data=ProjectSchema.from_orm(project_loaded).dict(), message="Project updated")
 
 @router.delete("/{id}", response_model=APIResponse)
 async def delete_project(

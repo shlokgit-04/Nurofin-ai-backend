@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel
 from app.models.project import ProjectStatusEnum, ProjectPriorityEnum
 from app.schemas.user import UserBasic
+from app.schemas.task import Task as TaskSchema
 
 class ProjectBase(BaseModel):
     name: Optional[str] = None
@@ -14,6 +15,8 @@ class ProjectBase(BaseModel):
     progress: Optional[float] = 0.0
     git_url: Optional[str] = None
     owner_id: Optional[int] = None
+    budget: Optional[float] = 0.0
+    spending: Optional[float] = 0.0
 
 class ProjectCreate(ProjectBase):
     name: str
@@ -30,6 +33,7 @@ class ProjectInDBBase(ProjectBase):
 class Project(ProjectInDBBase):
     owner: Optional[UserBasic] = None
     members: List[UserBasic] = []
+    tasks: List[TaskSchema] = []
 
     class Config:
         orm_mode = True
