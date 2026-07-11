@@ -36,7 +36,8 @@ async def create_notification(
     notif_in: NotificationCreate,
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    notif_data = notif_in.dict()
+    notif_data = notif_in.dict(exclude_unset=True)
+    notif_data.pop("user_id", None)
     db_notif = Notification(**notif_data, user_id=current_user.id)
     db.add(db_notif)
     await db.commit()
