@@ -57,7 +57,7 @@ async def mark_as_read(
     result = await db.execute(select(Notification).filter(Notification.id == id, Notification.user_id == current_user.id))
     notif = result.scalars().first()
     if not notif:
-        return error_response(message="Notification not found", status_code=404)
+        return error_response(message="Notification not found")
         
     notif.is_read = True
     await db.commit()
