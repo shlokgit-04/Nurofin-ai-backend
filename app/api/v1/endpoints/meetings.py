@@ -100,7 +100,7 @@ async def delete_meeting(
     result = await db.execute(select(Meeting).filter(Meeting.id == id))
     meeting = result.scalars().first()
     if not meeting:
-        return error_response(message="Event not found", status_code=404)
+        return error_response(message="Event not found")
         
     meeting.is_deleted = True
     await db.commit()

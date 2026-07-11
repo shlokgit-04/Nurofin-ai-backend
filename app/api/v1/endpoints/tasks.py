@@ -124,7 +124,7 @@ async def delete_task(
     result = await db.execute(select(Task).filter(Task.id == id))
     task = result.scalars().first()
     if not task:
-        return error_response(message="Task not found", status_code=404)
+        return error_response(message="Task not found")
         
     project_id = task.project_id
     task.is_deleted = True

@@ -97,7 +97,7 @@ async def delete_project(
     result = await db.execute(select(Project).filter(Project.id == id))
     project = result.scalars().first()
     if not project:
-        return error_response(message="Project not found", status_code=404)
+        return error_response(message="Project not found")
         
     project.is_deleted = True
     await db.commit()
@@ -115,13 +115,13 @@ async def add_member(
     proj_result = await db.execute(select(Project).options(selectinload(Project.members)).filter(Project.id == id))
     project = proj_result.scalars().first()
     if not project:
-        return error_response(message="Project not found", status_code=404)
+        return error_response(message="Project not found")
     
     # 2. Get user
     user_result = await db.execute(select(User).filter(User.id == user_id))
     user = user_result.scalars().first()
     if not user:
-        return error_response(message="User not found", status_code=404)
+        return error_response(message="User not found")
         
     # 3. Add member
     if user not in project.members:
@@ -141,7 +141,7 @@ async def remove_member(
     proj_result = await db.execute(select(Project).options(selectinload(Project.members)).filter(Project.id == id))
     project = proj_result.scalars().first()
     if not project:
-        return error_response(message="Project not found", status_code=404)
+        return error_response(message="Project not found")
         
     project.members = [m for m in project.members if m.id != user_id]
     await db.commit()
