@@ -32,7 +32,6 @@ def upgrade() -> None:
     op.drop_column('meeting', 'agenda')
     op.drop_column('meeting', 'time')
     op.add_column('notification', sa.Column('is_read', sa.Boolean(), nullable=True))
-    op.add_column('notification', sa.Column('created_at', sa.DateTime(), nullable=True))
     # ### end Alembic commands ###
 
 

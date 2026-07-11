@@ -30,6 +30,26 @@ async def read_tasks(
     data = [TaskSchema.from_orm(t).dict() for t in tasks]
     return success_response(data=data, message="Tasks retrieved successfully")
 
+@router.get("/overdue", response_model=APIResponse)
+async def read_overdue_tasks(
+    db: AsyncSession = Depends(deps.get_db),
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(deps.get_current_user)
+) -> Any:
+    from datetime import datetime
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    result = await db.execute(
+        select(Task)
+        .options(selectinload(Task.assigned_to), selectinload(Task.assigned_by))
+        .filter(Task.is_deleted == False, Task.deadline < today_str, Task.status != 'completed')
+        .offset(skip)
+        .limit(limit)
+    )
+    tasks = result.scalars().all()
+    data = [TaskSchema.from_orm(t).dict() for t in tasks]
+    return success_response(data=data, message="Overdue tasks retrieved successfully")
+
 async def update_project_progress(db: AsyncSession, project_id: int):
     from app.models.project import Project
     
@@ -124,7 +144,7 @@ async def delete_task(
     result = await db.execute(select(Task).filter(Task.id == id))
     task = result.scalars().first()
     if not task:
-        return error_response(message="Task not found", status_code=404)
+        return error_response(message="Task not found")
         
     project_id = task.project_id
     task.is_deleted = True
