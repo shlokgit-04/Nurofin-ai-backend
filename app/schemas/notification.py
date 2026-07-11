@@ -12,7 +12,7 @@ class NotificationBase(BaseModel):
 
 class NotificationCreate(NotificationBase):
     title: str
-    user_id: int
+    user_id: Optional[int] = None
 
 class NotificationUpdate(NotificationBase):
     is_read: Optional[bool] = None
