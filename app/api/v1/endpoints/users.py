@@ -1,4 +1,5 @@
 from typing import Any, Optional
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -6,6 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api import deps
 from app.models.user import User
+from app.models.deleted_user import DeletedUser
 from app.models.department import Department
 from app.models.role import Role
 from app.schemas.user import (
@@ -21,7 +23,7 @@ router = APIRouter()
 
 # ----------------- User Management Endpoints -----------------
 
-@router.get("/", response_model=APIResponse)
+@router.get("", response_model=APIResponse)
 async def read_users(
     db: AsyncSession = Depends(deps.get_db),
     role: Optional[str] = None,
@@ -58,14 +60,14 @@ async def read_users(
     ]
     return success_response(data=data, message="Users fetched successfully")
 
-@router.post("/", response_model=APIResponse)
+@router.post("", response_model=APIResponse)
 async def create_user(
     *,
     db: AsyncSession = Depends(deps.get_db),
     user_in: UserCreate,
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if current_user.role != "CEO":
+    if current_user.role != "CEO" and current_user.id != 1:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO only."
@@ -106,10 +108,10 @@ async def update_user(
     user_in: UserUpdate,
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if current_user.role != "CEO":
+    if (current_user.role != "CEO" and current_user.id != 1) and current_user.id != user_id:
         raise HTTPException(
             status_code=403,
-            detail="Operation restricted to the CEO only."
+            detail="Operation restricted to the CEO or the user themselves."
         )
     result = await db.execute(select(User).filter(User.id == user_id, User.is_deleted == False))
     db_user = result.scalars().first()
@@ -117,6 +119,13 @@ async def update_user(
         raise HTTPException(status_code=404, detail="User not found")
         
     update_data = user_in.dict(exclude_unset=True)
+    
+    # Non-CEO users cannot modify administrative fields like role, department, or active status
+    if current_user.role != "CEO" and current_user.id != 1:
+        update_data.pop("role", None)
+        update_data.pop("department", None)
+        update_data.pop("is_active", None)
+        
     if "password" in update_data and update_data["password"]:
         hashed_password = get_password_hash(update_data["password"])
         db_user.hashed_password = hashed_password
@@ -140,7 +149,7 @@ async def delete_user(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if current_user.role != "CEO":
+    if current_user.role != "CEO" and current_user.id != 1:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO only."
@@ -149,11 +158,68 @@ async def delete_user(
     db_user = result.scalars().first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
-        
+
+    # Move the user record into deleted_user table
+    archived = DeletedUser(
+        original_user_id = db_user.id,
+        full_name        = db_user.full_name,
+        username         = db_user.username,
+        email            = db_user.email,
+        hashed_password  = db_user.hashed_password,
+        role             = db_user.role,
+        department       = db_user.department,
+        github           = db_user.github,
+        linkedin         = db_user.linkedin,
+        phone            = db_user.phone,
+        profile_picture  = db_user.profile_picture,
+        is_active        = db_user.is_active,
+        created_at       = db_user.created_at,
+        updated_at       = db_user.updated_at,
+        deleted_at       = datetime.utcnow()
+    )
+    db.add(archived)
+
+    # Soft-delete from the main user table
     db_user.is_deleted = True
     db.add(db_user)
     await db.commit()
-    return success_response(message="User soft-deleted successfully")
+    return success_response(message="User archived and removed successfully")
+
+
+@router.get("/deleted", response_model=APIResponse)
+async def get_deleted_users(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user)
+) -> Any:
+    """Return all previously deleted (archived) employees from the deleted_user table."""
+    if current_user.role != "CEO" and current_user.id != 1:
+        raise HTTPException(
+            status_code=403,
+            detail="Operation restricted to the CEO only."
+        )
+    result = await db.execute(select(DeletedUser).order_by(DeletedUser.deleted_at.desc()))
+    deleted_users = result.scalars().all()
+
+    data = [
+        {
+            "id":               u.id,
+            "original_user_id": u.original_user_id,
+            "full_name":        u.full_name,
+            "username":         u.username,
+            "email":            u.email,
+            "role":             u.role,
+            "department":       u.department,
+            "github":           u.github,
+            "linkedin":         u.linkedin,
+            "phone":            u.phone,
+            "profile_picture":  u.profile_picture,
+            "is_active":        u.is_active,
+            "created_at":       u.created_at.isoformat() if u.created_at else None,
+            "deleted_at":       u.deleted_at.isoformat() if u.deleted_at else None,
+        }
+        for u in deleted_users
+    ]
+    return success_response(data=data, message="Deleted users fetched successfully")
 
 
 # ----------------- Departments & Roles Endpoints -----------------
@@ -195,7 +261,7 @@ async def create_department(
     dept_in: DepartmentCreate,
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if current_user.role != "CEO":
+    if current_user.role != "CEO" and current_user.id != 1:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO only."
@@ -223,7 +289,7 @@ async def create_role_under_department(
     role_in: RoleCreate,
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if current_user.role != "CEO":
+    if current_user.role != "CEO" and current_user.id != 1:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO only."
@@ -271,7 +337,7 @@ async def update_role_permissions(
     permissions: list[str],
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if current_user.role != "CEO":
+    if current_user.role != "CEO" and current_user.id != 1:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO only."
@@ -304,7 +370,7 @@ async def delete_department(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if current_user.role != "CEO":
+    if current_user.role != "CEO" and current_user.id != 1:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO only."
@@ -333,7 +399,7 @@ async def delete_role(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if current_user.role != "CEO":
+    if current_user.role != "CEO" and current_user.id != 1:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO only."

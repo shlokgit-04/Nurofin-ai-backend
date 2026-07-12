@@ -7,3 +7,5 @@ from .meeting import Meeting, MeetingStatusEnum, meeting_participants
 from .issue import Issue, IssueStatusEnum, IssuePriorityEnum
 from .knowledge import Knowledge
 from .notification import Notification, NotificationTypeEnum
+from .deleted_user import DeletedUser
+
