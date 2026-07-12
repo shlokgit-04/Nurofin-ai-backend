@@ -47,3 +47,22 @@ async def login_access_token(
         },
         message="Login successful"
     )
+
+@router.get("/me", response_model=APIResponse)
+async def read_user_me(
+    current_user: User = Depends(deps.get_current_user)
+) -> Any:
+    return success_response(
+        data={
+            "id": current_user.id,
+            "email": current_user.email,
+            "full_name": current_user.full_name,
+            "role": current_user.role,
+            "department": current_user.department,
+            "phone": current_user.phone,
+            "github": current_user.github,
+            "linkedin": current_user.linkedin,
+            "profile_picture": current_user.profile_picture
+        },
+        message="Current user profile fetched successfully"
+    )

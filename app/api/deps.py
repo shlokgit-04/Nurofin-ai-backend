@@ -27,7 +27,11 @@ async def get_current_user(
                 result = await db.execute(select(User).filter(User.id == int(user_id)))
                 user = result.scalars().first()
         except Exception:
-            pass
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
             
     if not user:
         # Fallback to the first active user for seamless demo experience
