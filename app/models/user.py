@@ -17,13 +17,18 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    role = Column(String, default="employee")
+    role = Column(Enum(RoleEnum), default=RoleEnum.employee)
     department = Column(String)
     github = Column(String)
     linkedin = Column(String)
     phone = Column(String)
     profile_picture = Column(String)
     is_active = Column(Boolean(), default=True)
+    
+    # Google Calendar Integration
+    google_access_token = Column(String, nullable=True)
+    google_refresh_token = Column(String, nullable=True)
+    google_token_expires_at = Column(String, nullable=True)
     
     # Relationships
     owned_projects = relationship("Project", back_populates="owner")
