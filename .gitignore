@@ -24,3 +24,8 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Databases
+*.db
+nurofin_db.db
+
