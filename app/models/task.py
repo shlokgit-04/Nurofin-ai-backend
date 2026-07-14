@@ -22,14 +22,17 @@ class Task(Base):
     description = Column(String)
     status = Column(Enum(TaskStatusEnum), default=TaskStatusEnum.todo)
     priority = Column(Enum(TaskPriorityEnum), default=TaskPriorityEnum.medium)
-    deadline = Column(String) # Can be DateTime but specs say deadline, lets stick to string for simple parsing for now
+    deadline = Column(String)
     progress = Column(Float, default=0.0)
-    source = Column(String) # Email, Voice, Manual
+    source = Column(String)
     
     assigned_to_id = Column(Integer, ForeignKey("user.id"), nullable=True)
     assigned_by_id = Column(Integer, ForeignKey("user.id"), nullable=True)
     project_id = Column(Integer, ForeignKey("project.id"), nullable=True)
+    meeting_id = Column(Integer, ForeignKey("meeting.id"), nullable=True)
+    mom_id = Column(Integer, ForeignKey("meeting_extracted_tasks.id"), nullable=True)
     
     assigned_to = relationship("User", foreign_keys=[assigned_to_id], back_populates="assigned_tasks")
     assigned_by = relationship("User", foreign_keys=[assigned_by_id], back_populates="created_tasks")
     project = relationship("Project", back_populates="tasks")
+    meeting = relationship("Meeting")

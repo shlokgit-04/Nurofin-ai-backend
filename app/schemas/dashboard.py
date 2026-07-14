@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 
 class DashboardSummary(BaseModel):
     activeProjects: int
@@ -7,3 +8,8 @@ class DashboardSummary(BaseModel):
     overdueTasks: int
     todayMeetings: int
     highPriorityTasks: int
+    pendingInvitations: int = 0
+    meetingsNeedingMOM: int = 0
+    pendingApprovals: int = 0
+    upcomingDeadlines: int = 0
+    recentActivity: list = []

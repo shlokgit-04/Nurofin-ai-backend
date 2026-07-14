@@ -22,7 +22,7 @@ class IssueInDBBase(IssueBase):
     id: Optional[int] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class Issue(IssueInDBBase):
     pass

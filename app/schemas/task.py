@@ -15,6 +15,8 @@ class TaskBase(BaseModel):
     assigned_to_id: Optional[int] = None
     assigned_by_id: Optional[int] = None
     project_id: Optional[int] = None
+    meeting_id: Optional[int] = None
+    mom_id: Optional[int] = None
 
 class TaskCreate(TaskBase):
     title: str
@@ -26,11 +28,11 @@ class TaskInDBBase(TaskBase):
     id: Optional[int] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class Task(TaskInDBBase):
     assigned_to: Optional[UserBasic] = None
     assigned_by: Optional[UserBasic] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True

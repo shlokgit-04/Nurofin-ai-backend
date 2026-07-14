@@ -29,6 +29,8 @@ class User(Base):
     owned_projects = relationship("Project", back_populates="owner")
     assigned_tasks = relationship("Task", foreign_keys="Task.assigned_to_id", back_populates="assigned_to")
     created_tasks = relationship("Task", foreign_keys="Task.assigned_by_id", back_populates="assigned_by")
+    owned_meetings = relationship("Meeting", foreign_keys="Meeting.owner_id", back_populates="owner")
+    meeting_participations = relationship("MeetingParticipant", back_populates="user")
 
     @property
     def name(self):

@@ -7,10 +7,26 @@ from sqlalchemy.orm import selectinload
 from app.api import deps
 from app.models.task import Task
 from app.models.user import User
+from app.models.notification import Notification, NotificationTypeEnum
 from app.schemas.task import TaskCreate, TaskUpdate, Task as TaskSchema
 from app.core.responses import APIResponse, success_response, error_response
 
 router = APIRouter()
+
+
+async def _create_task_assignment_notification(
+    db: AsyncSession, task: Task, assigned_by_user: User
+):
+    if not task.assigned_to_id or task.assigned_to_id == assigned_by_user.id:
+        return
+    assigner_name = assigned_by_user.full_name or assigned_by_user.username or "Someone"
+    notif = Notification(
+        title=f"Task assigned: {task.title}",
+        message=f'{assigner_name} assigned you the task "{task.title}".',
+        type=NotificationTypeEnum.task_assigned,
+        user_id=task.assigned_to_id,
+    )
+    db.add(notif)
 
 @router.get("", response_model=APIResponse)
 async def read_tasks(
@@ -81,6 +97,11 @@ async def create_task(
         task_data = task_in.dict(exclude_unset=True)
         db_task = Task(**task_data, assigned_by_id=current_user.id)
         db.add(db_task)
+        await db.flush()
+
+        if db_task.assigned_to_id:
+            await _create_task_assignment_notification(db, db_task, current_user)
+
         await db.commit()
         await db.refresh(db_task)
         
@@ -116,10 +137,14 @@ async def update_task(
         raise HTTPException(status_code=404, detail="Task not found")
         
     old_project_id = task.project_id
+    old_assigned_to_id = task.assigned_to_id
     update_data = task_in.dict(exclude_unset=True)
     for field, value in update_data.items():
         setattr(task, field, value)
         
+    if task.assigned_to_id and task.assigned_to_id != old_assigned_to_id:
+        await _create_task_assignment_notification(db, task, current_user)
+
     await db.commit()
     
     # Recalculate progress for new and old projects

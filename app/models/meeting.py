@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, Enum, Table, ForeignKey
+from sqlalchemy import Column, Integer, String, Enum, ForeignKey, Text, Boolean
 from sqlalchemy.orm import relationship
 import enum
 from app.db.base_class import Base
+
 
 class MeetingStatusEnum(str, enum.Enum):
     scheduled = "scheduled"
@@ -9,28 +10,117 @@ class MeetingStatusEnum(str, enum.Enum):
     completed = "completed"
     cancelled = "cancelled"
 
+
 class MeetingTypeEnum(str, enum.Enum):
     meeting = "meeting"
     reminder = "reminder"
     event = "event"
 
-meeting_participants = Table(
-    'meeting_participants', Base.metadata,
-    Column('meeting_id', Integer, ForeignKey('meeting.id'), primary_key=True),
-    Column('user_id', Integer, ForeignKey('user.id'), primary_key=True)
-)
+
+class ParticipantStatusEnum(str, enum.Enum):
+    pending = "pending"
+    accepted = "accepted"
+    declined = "declined"
+    maybe = "maybe"
+
+
+class MeetingParticipant(Base):
+    __tablename__ = "meeting_participants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    meeting_id = Column(Integer, ForeignKey("meeting.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    status = Column(Enum(ParticipantStatusEnum), default=ParticipantStatusEnum.pending)
+    invited_at = Column(Integer, nullable=True)
+
+    meeting = relationship("Meeting", back_populates="participant_entries")
+    user = relationship("User", back_populates="meeting_participations")
+
+
+class MeetingTimeline(Base):
+    __tablename__ = "meeting_timeline"
+
+    id = Column(Integer, primary_key=True, index=True)
+    meeting_id = Column(Integer, ForeignKey("meeting.id"), nullable=False)
+    action = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=True)
+    metadata_json = Column(Text, nullable=True)
+
+    meeting = relationship("Meeting", back_populates="timeline_entries")
+    user = relationship("User")
+
+
+class MeetingExtractedTask(Base):
+    __tablename__ = "meeting_extracted_tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    meeting_id = Column(Integer, ForeignKey("meeting.id"), nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    priority = Column(String, default="medium")
+    suggested_owner = Column(String, nullable=True)
+    deadline = Column(String, nullable=True)
+    dependencies = Column(Text, nullable=True)
+    confidence = Column(Integer, default=80)
+    status = Column(String, default="pending")
+    real_task_id = Column(Integer, ForeignKey("task.id"), nullable=True)
+
+    meeting = relationship("Meeting", back_populates="extracted_tasks")
+    real_task = relationship("Task", foreign_keys=[real_task_id])
+
 
 class Meeting(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, index=True, nullable=False)
-    description = Column(String) # replacing agenda/notes with description for generic events
-    date = Column(String) # 'YYYY-MM-DD'
-    start_time = Column(String) # 'HH:MM'
-    end_time = Column(String) # 'HH:MM'
+    description = Column(String)
+    agenda = Column(Text, nullable=True)
+    meeting_link = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    date = Column(String)
+    start_time = Column(String)
+    end_time = Column(String)
+    timezone = Column(String, nullable=True)
     type = Column(Enum(MeetingTypeEnum), default=MeetingTypeEnum.meeting)
     status = Column(Enum(MeetingStatusEnum), default=MeetingStatusEnum.scheduled)
-    
+    is_recurring = Column(Boolean, default=False)
+    recurrence_rule = Column(String, nullable=True)
+
     owner_id = Column(Integer, ForeignKey("user.id"), nullable=True)
-    owner = relationship("User", foreign_keys=[owner_id])
-    
-    participants = relationship("User", secondary=meeting_participants, backref="meetings")
+    created_by_id = Column(Integer, ForeignKey("user.id"), nullable=True)
+
+    owner = relationship("User", foreign_keys=[owner_id], back_populates="owned_meetings")
+    created_by = relationship("User", foreign_keys=[created_by_id])
+
+    # MOM fields
+    mom_file_path = Column(String, nullable=True)
+    mom_summary = Column(String, nullable=True)
+    mom_uploaded_by_id = Column(Integer, ForeignKey("user.id"), nullable=True)
+    mom_uploaded_by = relationship("User", foreign_keys=[mom_uploaded_by_id])
+
+    # Structured MOM analysis (JSON strings)
+    mom_executive_summary = Column(Text, nullable=True)
+    mom_decisions = Column(Text, nullable=True)
+    mom_action_items = Column(Text, nullable=True)
+    mom_risks = Column(Text, nullable=True)
+    mom_blockers = Column(Text, nullable=True)
+    mom_followups = Column(Text, nullable=True)
+    mom_deadlines = Column(Text, nullable=True)
+    mom_important_dates = Column(Text, nullable=True)
+
+    # Participant relationships
+    participant_entries = relationship(
+        "MeetingParticipant", back_populates="meeting", cascade="all, delete-orphan"
+    )
+
+    timeline_entries = relationship(
+        "MeetingTimeline", back_populates="meeting", cascade="all, delete-orphan"
+    )
+
+    extracted_tasks = relationship(
+        "MeetingExtractedTask", back_populates="meeting", cascade="all, delete-orphan"
+    )
+
+    @property
+    def participants_list(self):
+        return [pe.user for pe in self.participant_entries if pe.user]

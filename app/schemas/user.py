@@ -29,12 +29,12 @@ class UserInDBBase(UserBase):
     id: Optional[int] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Additional properties to return via API
 class User(UserInDBBase):
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class UserBasic(BaseModel):
     id: int
@@ -42,11 +42,11 @@ class UserBasic(BaseModel):
     avatar: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Additional properties stored in DB
 class UserInDB(UserInDBBase):
     hashed_password: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
