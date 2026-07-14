@@ -7,7 +7,7 @@ class UserBase(BaseModel):
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
     username: Optional[str] = None
-    role: Optional[RoleEnum] = None
+    role: Optional[str] = None
     department: Optional[str] = None
     github: Optional[str] = None
     linkedin: Optional[str] = None
@@ -49,4 +49,39 @@ class UserInDB(UserInDBBase):
     hashed_password: str
 
     class Config:
+<<<<<<< HEAD
         from_attributes = True
+=======
+        orm_mode = True
+
+# Role and Department schemas
+class RoleBase(BaseModel):
+    name: str
+    permissions: Optional[list[str]] = []
+    is_custom: Optional[bool] = False
+
+class RoleCreate(RoleBase):
+    pass
+
+class RoleResponse(RoleBase):
+    id: int
+    department_id: int
+
+    class Config:
+        orm_mode = True
+
+class DepartmentBase(BaseModel):
+    name: str
+    is_custom: Optional[bool] = False
+
+class DepartmentCreate(DepartmentBase):
+    pass
+
+class DepartmentResponse(DepartmentBase):
+    id: int
+    roles: list[RoleResponse] = []
+
+    class Config:
+        orm_mode = True
+
+>>>>>>> 36c9346297ebf7b728efbaf87dd11cb64729010f

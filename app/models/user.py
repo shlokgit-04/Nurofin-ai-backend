@@ -17,7 +17,7 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    role = Column(Enum(RoleEnum), default=RoleEnum.employee)
+    role = Column(String, default="employee")
     department = Column(String)
     github = Column(String)
     linkedin = Column(String)
