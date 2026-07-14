@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "nurofin_db"
     POSTGRES_PORT: str = "5432"
     
+    GOOGLE_CLIENT_ID: str = "YOUR_GOOGLE_CLIENT_ID"
+    GOOGLE_CLIENT_SECRET: str = "YOUR_GOOGLE_CLIENT_SECRET"
+    GOOGLE_PROJECT_ID: str = "YOUR_PROJECT_ID"
+    
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
         import os

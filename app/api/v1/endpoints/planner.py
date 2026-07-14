@@ -52,7 +52,7 @@ async def login_google(
 
 @router.post("/google/callback", response_model=APIResponse)
 async def google_callback(
-    code: str,
+    code: str = Query(...),
     redirect_uri: str = Query(default="http://localhost:3000/planner/google/callback"),
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user)
@@ -69,6 +69,8 @@ async def google_callback(
         await db.refresh(current_user)
         return success_response(data=None, message="Google Calendar connected successfully")
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=f"Failed to connect Google Calendar: {str(e)}")
 
 

@@ -1,4 +1,3 @@
-import os
 from datetime import datetime, timezone
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -6,9 +5,9 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from app.core.config import settings
 
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "YOUR_GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "YOUR_GOOGLE_CLIENT_SECRET")
-GOOGLE_PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID", "YOUR_PROJECT_ID")
+GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET = settings.GOOGLE_CLIENT_SECRET
+GOOGLE_PROJECT_ID = settings.GOOGLE_PROJECT_ID
 
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 
@@ -24,34 +23,44 @@ CLIENT_CONFIG = {
 }
 
 
-def get_google_auth_url(redirect_uri: str) -> str:
-    CLIENT_CONFIG["web"]["redirect_uris"] = [redirect_uri]
-    flow = Flow.from_client_config(
-        CLIENT_CONFIG,
-        scopes=SCOPES,
-        redirect_uri=redirect_uri
-    )
-    authorization_url, state = flow.authorization_url(
-        access_type='offline',
-        include_granted_scopes='true',
-        prompt='consent'
-    )
-    return authorization_url
+import requests
+from urllib.parse import urlencode
+from datetime import timedelta
 
+def get_google_auth_url(redirect_uri: str) -> str:
+    params = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": " ".join(SCOPES),
+        "access_type": "offline",
+        "include_granted_scopes": "true",
+        "prompt": "consent",
+    }
+    return "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(params)
 
 def exchange_code_for_tokens(code: str, redirect_uri: str):
-    CLIENT_CONFIG["web"]["redirect_uris"] = [redirect_uri]
-    flow = Flow.from_client_config(
-        CLIENT_CONFIG,
-        scopes=SCOPES,
-        redirect_uri=redirect_uri
-    )
-    flow.fetch_token(code=code)
-    credentials = flow.credentials
+    token_url = "https://oauth2.googleapis.com/token"
+    data = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "code": code,
+        "grant_type": "authorization_code",
+        "redirect_uri": redirect_uri,
+    }
+    response = requests.post(token_url, data=data)
+    if not response.ok:
+        raise Exception(f"Failed to exchange token: {response.text}")
+    
+    token_data = response.json()
+    
+    expires_in = token_data.get("expires_in", 3600)
+    expires_at = (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
+    
     return {
-        "access_token": credentials.token,
-        "refresh_token": credentials.refresh_token,
-        "expires_at": credentials.expiry.isoformat() if credentials.expiry else None
+        "access_token": token_data["access_token"],
+        "refresh_token": token_data.get("refresh_token"),
+        "expires_at": expires_at
     }
 
 
