@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 from app.api import deps
 from app.models.project import Project
 from app.models.user import User
+from app.models.task import Task
 from app.schemas.project import ProjectCreate, ProjectUpdate
 from app.core.responses import APIResponse, success_response, error_response
 
@@ -61,6 +62,11 @@ def _serialize_project(p: Project) -> dict:
                 "deadline": _fmt_date(t.deadline),
                 "progress": t.progress,
                 "assigned_to_id": t.assigned_to_id,
+                "assigned_to": {
+                    "id": t.assigned_to.id,
+                    "name": t.assigned_to.full_name,
+                    "avatar": t.assigned_to.profile_picture,
+                } if t.assigned_to else None,
             }
             for t in (p.tasks or [])
             if not t.is_deleted
@@ -80,7 +86,7 @@ async def read_projects(
         .options(
             selectinload(Project.members),
             selectinload(Project.owner),
-            selectinload(Project.tasks)
+            selectinload(Project.tasks).selectinload(Task.assigned_to)
         )
         .filter(Project.is_deleted == False)
         .offset(skip)
@@ -101,6 +107,10 @@ async def create_project(
     project_data = project_in.dict(exclude_unset=True)
     db_project = Project(**project_data, owner_id=current_user.id)
     db.add(db_project)
+    
+    # Automatically add the owner (creator) to the project members list
+    db_project.members.append(current_user)
+    
     await db.commit()
 
     # Reload with relationships for serialization
@@ -109,7 +119,7 @@ async def create_project(
         .options(
             selectinload(Project.members),
             selectinload(Project.owner),
-            selectinload(Project.tasks)
+            selectinload(Project.tasks).selectinload(Task.assigned_to)
         )
         .filter(Project.id == db_project.id)
     )
@@ -143,7 +153,7 @@ async def update_project(
         .options(
             selectinload(Project.members),
             selectinload(Project.owner),
-            selectinload(Project.tasks)
+            selectinload(Project.tasks).selectinload(Task.assigned_to)
         )
         .filter(Project.id == id)
     )

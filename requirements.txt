@@ -18,3 +18,4 @@ google-auth-oauthlib
 google-auth-httplib2
 google-api-python-client
 qdrant-client==1.9.1
+aiosqlite>=0.19.0

@@ -17,7 +17,18 @@ class Settings(BaseSettings):
     
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
-        return f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        import os
+        if os.getenv("USE_SQLITE", "").lower() in ("true", "1"):
+            return "sqlite+aiosqlite:///./nurofin_db.db"
+            
+        import socket
+        try:
+            # Verify if PostgreSQL port is reachable
+            with socket.create_connection((self.POSTGRES_SERVER, int(self.POSTGRES_PORT)), timeout=0.5):
+                return f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        except Exception:
+            # Fall back to local SQLite file database for a seamless developer experience
+            return "sqlite+aiosqlite:///./nurofin_db.db"
 
     class Config:
         env_file = ".env"
