@@ -49,10 +49,7 @@ class UserInDB(UserInDBBase):
     hashed_password: str
 
     class Config:
-<<<<<<< HEAD
         from_attributes = True
-=======
-        orm_mode = True
 
 # Role and Department schemas
 class RoleBase(BaseModel):
@@ -68,7 +65,7 @@ class RoleResponse(RoleBase):
     department_id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class DepartmentBase(BaseModel):
     name: str
@@ -82,6 +79,4 @@ class DepartmentResponse(DepartmentBase):
     roles: list[RoleResponse] = []
 
     class Config:
-        orm_mode = True
-
->>>>>>> 36c9346297ebf7b728efbaf87dd11cb64729010f
+        from_attributes = True
