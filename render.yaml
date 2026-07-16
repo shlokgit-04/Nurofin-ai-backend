@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: nurofin-ai-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: USE_SQLITE
+        value: "true"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: "http://localhost:3000,http://localhost:8001"
+      - key: PYTHON_VERSION
+        value: "3.11"

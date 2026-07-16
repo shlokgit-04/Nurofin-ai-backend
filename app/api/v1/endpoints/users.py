@@ -6,7 +6,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from app.api import deps
-from app.models.user import User
+from app.models.user import User, RoleEnum
 from app.models.deleted_user import DeletedUser
 from app.models.department import Department
 from app.models.role import Role
@@ -67,7 +67,7 @@ async def create_user(
     user_in: UserCreate,
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if current_user.role != "CEO" and current_user.id != 1:
+    if current_user.role != RoleEnum.ceo and current_user.id != 1:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO only."
@@ -108,7 +108,7 @@ async def update_user(
     user_in: UserUpdate,
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if (current_user.role != "CEO" and current_user.id != 1) and current_user.id != user_id:
+    if (current_user.role != RoleEnum.ceo and current_user.id != 1) and current_user.id != user_id:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO or the user themselves."
@@ -121,7 +121,7 @@ async def update_user(
     update_data = user_in.dict(exclude_unset=True)
     
     # Non-CEO users cannot modify administrative fields like role, department, or active status
-    if current_user.role != "CEO" and current_user.id != 1:
+    if current_user.role != RoleEnum.ceo and current_user.id != 1:
         update_data.pop("role", None)
         update_data.pop("department", None)
         update_data.pop("is_active", None)
@@ -149,7 +149,7 @@ async def delete_user(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if current_user.role != "CEO" and current_user.id != 1:
+    if current_user.role != RoleEnum.ceo and current_user.id != 1:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO only."
@@ -192,7 +192,7 @@ async def get_deleted_users(
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
     """Return all previously deleted (archived) employees from the deleted_user table."""
-    if current_user.role != "CEO" and current_user.id != 1:
+    if current_user.role != RoleEnum.ceo and current_user.id != 1:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO only."
@@ -261,7 +261,7 @@ async def create_department(
     dept_in: DepartmentCreate,
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if current_user.role != "CEO" and current_user.id != 1:
+    if current_user.role != RoleEnum.ceo and current_user.id != 1:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO only."
@@ -289,7 +289,7 @@ async def create_role_under_department(
     role_in: RoleCreate,
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if current_user.role != "CEO" and current_user.id != 1:
+    if current_user.role != RoleEnum.ceo and current_user.id != 1:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO only."
@@ -337,7 +337,7 @@ async def update_role_permissions(
     permissions: list[str],
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if current_user.role != "CEO" and current_user.id != 1:
+    if current_user.role != RoleEnum.ceo and current_user.id != 1:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO only."
@@ -370,7 +370,7 @@ async def delete_department(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if current_user.role != "CEO" and current_user.id != 1:
+    if current_user.role != RoleEnum.ceo and current_user.id != 1:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO only."
@@ -399,7 +399,7 @@ async def delete_role(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    if current_user.role != "CEO" and current_user.id != 1:
+    if current_user.role != RoleEnum.ceo and current_user.id != 1:
         raise HTTPException(
             status_code=403,
             detail="Operation restricted to the CEO only."
