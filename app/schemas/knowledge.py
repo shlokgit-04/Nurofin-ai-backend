@@ -18,7 +18,7 @@ class KnowledgeInDBBase(KnowledgeBase):
     id: Optional[int] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class Knowledge(KnowledgeInDBBase):
     pass

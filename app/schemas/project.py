@@ -28,7 +28,7 @@ class ProjectInDBBase(ProjectBase):
     id: Optional[int] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class Project(ProjectInDBBase):
     owner: Optional[UserBasic] = None
@@ -36,4 +36,4 @@ class Project(ProjectInDBBase):
     tasks: List[TaskSchema] = []
 
     class Config:
-        from_attributes = True
+        orm_mode = True

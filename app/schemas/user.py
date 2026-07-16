@@ -29,12 +29,12 @@ class UserInDBBase(UserBase):
     id: Optional[int] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # Additional properties to return via API
 class User(UserInDBBase):
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class UserBasic(BaseModel):
     id: int
@@ -42,14 +42,14 @@ class UserBasic(BaseModel):
     avatar: Optional[str] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # Additional properties stored in DB
 class UserInDB(UserInDBBase):
     hashed_password: str
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # Role and Department schemas
 class RoleBase(BaseModel):
@@ -65,7 +65,7 @@ class RoleResponse(RoleBase):
     department_id: int
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class DepartmentBase(BaseModel):
     name: str
@@ -79,4 +79,4 @@ class DepartmentResponse(DepartmentBase):
     roles: list[RoleResponse] = []
 
     class Config:
-        from_attributes = True
+        orm_mode = True

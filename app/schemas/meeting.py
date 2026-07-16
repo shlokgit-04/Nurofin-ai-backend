@@ -36,7 +36,7 @@ class MeetingParticipantOut(BaseModel):
     status: ParticipantStatusEnum = ParticipantStatusEnum.pending
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 
 class MOMUpload(BaseModel):
@@ -53,7 +53,7 @@ class MeetingTimelineOut(BaseModel):
     created_at: Optional[datetime] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 
 class MeetingExtractedTaskOut(BaseModel):
@@ -70,7 +70,7 @@ class MeetingExtractedTaskOut(BaseModel):
     real_task_id: Optional[int] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 
 class ExtractedTaskUpdate(BaseModel):
@@ -89,7 +89,7 @@ class MeetingInDBBase(MeetingBase):
     id: Optional[int] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 
 class Meeting(MeetingInDBBase):
@@ -116,4 +116,4 @@ class Meeting(MeetingInDBBase):
     created_by_id: Optional[int] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.api import deps
 from app.models.user import User
-from app.models.meeting import Meeting, meeting_participants
+from app.models.meeting import Meeting, MeetingParticipant
 from app.core.responses import APIResponse, success_response, error_response
 from app.services.google_calendar import get_google_auth_url, exchange_code_for_tokens, fetch_calendar_events
 
@@ -116,8 +116,8 @@ async def get_user_schedule(
 
     local_meetings_query = (
         select(Meeting)
-        .join(meeting_participants, meeting_participants.c.meeting_id == Meeting.id)
-        .filter(meeting_participants.c.user_id == target_user.id)
+        .join(MeetingParticipant, MeetingParticipant.meeting_id == Meeting.id)
+        .filter(MeetingParticipant.user_id == target_user.id)
         .filter(Meeting.is_deleted == False)
     )
     if start_date:
@@ -199,8 +199,8 @@ async def check_availability(
 
         local_query = (
             select(Meeting)
-            .join(meeting_participants, meeting_participants.c.meeting_id == Meeting.id)
-            .filter(meeting_participants.c.user_id == uid)
+            .join(MeetingParticipant, MeetingParticipant.meeting_id == Meeting.id)
+            .filter(MeetingParticipant.user_id == uid)
             .filter(Meeting.is_deleted == False)
             .filter(Meeting.date == date)
         )

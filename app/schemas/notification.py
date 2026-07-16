@@ -22,8 +22,8 @@ class NotificationInDBBase(NotificationBase):
     created_at: Optional[datetime] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class Notification(NotificationInDBBase):
     class Config:
-        from_attributes = True
+        orm_mode = True
