@@ -22,16 +22,26 @@ class Settings(BaseSettings):
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
         import os
+        
+        # 1. Use DATABASE_URL if it's provided (e.g. by Render)
+        db_url = os.getenv("DATABASE_URL")
+        if db_url:
+            if db_url.startswith("postgres://"):
+                db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
+            elif db_url.startswith("postgresql://"):
+                db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+            return db_url
+            
+        # 2. Use explicit SQLite fallback
         if os.getenv("USE_SQLITE", "").lower() in ("true", "1"):
             return "sqlite+aiosqlite:///./nurofin_db.db"
             
+        # 3. Fallback to local Postgres
         import socket
         try:
-            # Verify if PostgreSQL port is reachable
             with socket.create_connection((self.POSTGRES_SERVER, int(self.POSTGRES_PORT)), timeout=0.5):
                 return f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         except Exception:
-            # Fall back to local SQLite file database for a seamless developer experience
             return "sqlite+aiosqlite:///./nurofin_db.db"
 
     class Config:
