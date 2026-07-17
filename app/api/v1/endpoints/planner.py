@@ -29,7 +29,7 @@ async def get_planner_users(
                 "id": u.id,
                 "full_name": u.full_name,
                 "email": u.email,
-                "role": u.role.value if u.role else None,
+                "role": u.role,
                 "department": u.department,
                 "profile_picture": u.profile_picture,
                 "google_connected": bool(u.google_access_token),
