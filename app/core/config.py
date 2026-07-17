@@ -23,26 +23,17 @@ class Settings(BaseSettings):
     def SQLALCHEMY_DATABASE_URI(self) -> str:
         import os
         
-        # 1. Use DATABASE_URL if it's provided (e.g. by Render)
         db_url = os.getenv("DATABASE_URL")
-        if db_url:
-            if db_url.startswith("postgres://"):
-                db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
-            elif db_url.startswith("postgresql://"):
-                db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
-            return db_url
+        if not db_url:
+            raise ValueError("DATABASE_URL environment variable is missing on Render!")
             
-        # 2. Use explicit SQLite fallback
-        if os.getenv("USE_SQLITE", "").lower() in ("true", "1"):
-            return "sqlite+aiosqlite:///./nurofin_db.db"
+        db_url = db_url.strip()
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
+        elif db_url.startswith("postgresql://"):
+            db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
             
-        # 3. Fallback to local Postgres
-        import socket
-        try:
-            with socket.create_connection((self.POSTGRES_SERVER, int(self.POSTGRES_PORT)), timeout=0.5):
-                return f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
-        except Exception:
-            return "sqlite+aiosqlite:///./nurofin_db.db"
+        return db_url
 
     class Config:
         env_file = ".env"
