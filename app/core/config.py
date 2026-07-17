@@ -22,24 +22,30 @@ class Settings(BaseSettings):
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
         import os
-        database_url = os.getenv("DATABASE_URL", "")
+
+        # Priority 1: DATABASE_URL (Render, Heroku, managed databases)
+        database_url = os.getenv("DATABASE_URL", "").strip()
         if database_url:
-            database_url = database_url.strip()
             if database_url.startswith("postgres://"):
                 database_url = "postgresql+psycopg://" + database_url[len("postgres://"):]
             elif database_url.startswith("postgresql://"):
                 database_url = "postgresql+psycopg://" + database_url[len("postgresql://"):]
             return database_url
 
+        # Priority 2: USE_SQLITE (local development / demo mode)
         if os.getenv("USE_SQLITE", "").lower() in ("true", "1"):
             return "sqlite+aiosqlite:///./nurofin_db.db"
 
-        import socket
-        try:
-            with socket.create_connection((self.POSTGRES_SERVER, int(self.POSTGRES_PORT)), timeout=0.5):
-                return f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
-        except Exception:
-            return "sqlite+aiosqlite:///./nurofin_db.db"
+        # Priority 3: POSTGRES_* environment variables
+        if self.POSTGRES_SERVER and self.POSTGRES_USER and self.POSTGRES_PASSWORD and self.POSTGRES_DB and self.POSTGRES_PORT:
+            return f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+
+        # Priority 4: No database configuration found
+        raise ValueError(
+            "No database configuration found. Set one of: "
+            "DATABASE_URL (preferred), USE_SQLITE=true, "
+            "or POSTGRES_SERVER/POSTGRES_PORT/POSTGRES_USER/POSTGRES_PASSWORD/POSTGRES_DB."
+        )
 
     class Config:
         env_file = ".env"

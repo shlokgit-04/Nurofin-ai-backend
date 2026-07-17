@@ -41,3 +41,7 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 @app.get("/")
 def read_root():
     return {"message": f"Welcome to {settings.PROJECT_NAME} API"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}

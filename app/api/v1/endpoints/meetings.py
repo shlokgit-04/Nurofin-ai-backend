@@ -1,6 +1,7 @@
 from typing import Any, Optional
 from datetime import datetime, timedelta
 import json
+import os
 import time as _time
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -600,7 +601,7 @@ async def analyze_mom(
     if not meeting.mom_summary:
         return error_response(message="No MOM uploaded yet")
 
-    ai_engine_url = "http://localhost:8001/api/v1/chat/analyze"
+    ai_engine_url = os.getenv("AI_ENGINE_URL", "http://localhost:8001") + "/api/v1/chat/analyze"
     prompt = ANALYSIS_PROMPT + meeting.mom_summary
 
     try:
