@@ -106,13 +106,13 @@ class Meeting(MeetingInDBBase):
     is_recurring: Optional[bool] = False
     created_at: Optional[str] = None
     mom_executive_summary: Optional[str] = None
-    mom_decisions: Optional[str] = None
-    mom_action_items: Optional[str] = None
-    mom_risks: Optional[str] = None
-    mom_blockers: Optional[str] = None
-    mom_followups: Optional[str] = None
-    mom_deadlines: Optional[str] = None
-    mom_important_dates: Optional[str] = None
+    mom_decisions: Optional[List] = None
+    mom_action_items: Optional[List] = None
+    mom_risks: Optional[List] = None
+    mom_blockers: Optional[List] = None
+    mom_followups: Optional[List] = None
+    mom_deadlines: Optional[List] = None
+    mom_important_dates: Optional[List] = None
     created_by_id: Optional[int] = None
 
     class Config:

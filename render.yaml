@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: nurofin-ai-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nurofin-db
+          property: connectionString
+      - key: CORS_ORIGINS
+        sync: false
+      - key: AI_ENGINE_URL
+        value: "https://ai-engin.onrender.com"
+      - key: FRONTEND_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_PROJECT_ID
+        sync: false
+  - type: postgres
+    name: nurofin-db
+    plan: free
+    databaseName: nurofin_db

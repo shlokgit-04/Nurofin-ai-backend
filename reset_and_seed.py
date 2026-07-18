@@ -164,7 +164,7 @@ async def seed_data():
             email=admin_email,
             full_name="Vincent CEO",
             username="vincent_ceo",
-            role="CEO",
+            role="ceo",
             department="Executive Board",
             phone="+1 (555) 019-2834",
             github="https://github.com/vincent-nurofin",
