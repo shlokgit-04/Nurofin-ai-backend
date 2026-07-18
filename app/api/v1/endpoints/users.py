@@ -87,7 +87,16 @@ async def create_user(
             detail="The user with this username already exists in the system.",
         )
         
+    
     user_data = user_in.dict(exclude={"password"})
+    
+    # Map frontend custom roles to database enum
+    valid_roles = ["super_admin", "admin", "ceo", "manager", "team_lead", "employee"]
+    if user_data.get("role") and user_data["role"].lower() not in valid_roles:
+        user_data["role"] = "employee"
+    elif user_data.get("role"):
+        user_data["role"] = user_data["role"].lower()
+        
     hashed_password = get_password_hash(user_in.password)
     
     db_user = User(**user_data, hashed_password=hashed_password)
@@ -131,6 +140,14 @@ async def update_user(
         db_user.hashed_password = hashed_password
         del update_data["password"]
         
+    # Map frontend custom roles to database enum
+    valid_roles = ["super_admin", "admin", "ceo", "manager", "team_lead", "employee"]
+    if "role" in update_data and update_data["role"]:
+        if update_data["role"].lower() not in valid_roles:
+            update_data["role"] = "employee"
+        else:
+            update_data["role"] = update_data["role"].lower()
+
     for field, val in update_data.items():
         setattr(db_user, field, val)
         
