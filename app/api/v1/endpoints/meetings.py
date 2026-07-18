@@ -601,7 +601,10 @@ async def analyze_mom(
     if not meeting.mom_summary:
         return error_response(message="No MOM uploaded yet")
 
-    ai_engine_url = os.getenv("AI_ENGINE_URL", "http://localhost:8001") + "/api/v1/chat/analyze"
+    ai_engine_url = os.getenv("AI_ENGINE_URL", "").strip()
+    if not ai_engine_url:
+        return error_response(message="AI_ENGINE_URL environment variable is not configured")
+    ai_engine_url = ai_engine_url.rstrip("/") + "/api/v1/chat/analyze"
     prompt = ANALYSIS_PROMPT + meeting.mom_summary
 
     try:

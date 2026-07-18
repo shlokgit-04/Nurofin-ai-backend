@@ -4,7 +4,12 @@ from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
 echo_mode = os.getenv("APP_ENV", "development") == "development"
-engine = create_async_engine(settings.SQLALCHEMY_DATABASE_URI, echo=echo_mode)
+engine = create_async_engine(
+    settings.SQLALCHEMY_DATABASE_URI,
+    echo=echo_mode,
+    pool_pre_ping=True,
+    pool_recycle=300,
+)
 SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 async def get_db():
