@@ -22,18 +22,30 @@ class Settings(BaseSettings):
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
         import os
-        
-        db_url = os.getenv("DATABASE_URL")
-        if not db_url:
-            raise ValueError("DATABASE_URL environment variable is missing on Render!")
-            
-        db_url = db_url.strip()
-        if db_url.startswith("postgres://"):
-            db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
-        elif db_url.startswith("postgresql://"):
-            db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
-            
-        return db_url
+
+        # Priority 1: DATABASE_URL (Render, Heroku, managed databases)
+        database_url = os.getenv("DATABASE_URL", "").strip()
+        if database_url:
+            if database_url.startswith("postgres://"):
+                database_url = "postgresql+psycopg://" + database_url[len("postgres://"):]
+            elif database_url.startswith("postgresql://"):
+                database_url = "postgresql+psycopg://" + database_url[len("postgresql://"):]
+            return database_url
+
+        # Priority 2: USE_SQLITE (local development / demo mode)
+        if os.getenv("USE_SQLITE", "").lower() in ("true", "1"):
+            return "sqlite+aiosqlite:///./nurofin_db.db"
+
+        # Priority 3: POSTGRES_* environment variables
+        if self.POSTGRES_SERVER and self.POSTGRES_USER and self.POSTGRES_PASSWORD and self.POSTGRES_DB and self.POSTGRES_PORT:
+            return f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+
+        # Priority 4: No database configuration found
+        raise ValueError(
+            "No database configuration found. Set one of: "
+            "DATABASE_URL (preferred), USE_SQLITE=true, "
+            "or POSTGRES_SERVER/POSTGRES_PORT/POSTGRES_USER/POSTGRES_PASSWORD/POSTGRES_DB."
+        )
 
     class Config:
         env_file = ".env"

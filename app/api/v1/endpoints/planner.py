@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from datetime import datetime, timedelta, timezone
+import os
 
 from app.api import deps
 from app.models.user import User
@@ -42,10 +43,13 @@ async def get_planner_users(
 
 @router.get("/google/login", response_model=APIResponse)
 async def login_google(
-    redirect_uri: str = Query(default="http://localhost:3000/planner/google/callback"),
+    redirect_uri: str = Query(default=None),
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
     """Get the Google OAuth login URL for the current user."""
+    if not redirect_uri:
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        redirect_uri = f"{frontend_url}/planner/google/callback"
     auth_url = get_google_auth_url(redirect_uri)
     return success_response(data={"auth_url": auth_url}, message="Google Auth URL generated")
 
@@ -53,11 +57,14 @@ async def login_google(
 @router.post("/google/callback", response_model=APIResponse)
 async def google_callback(
     code: str = Query(...),
-    redirect_uri: str = Query(default="http://localhost:3000/planner/google/callback"),
+    redirect_uri: str = Query(default=None),
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
     """Exchange code for tokens and save them to the user."""
+    if not redirect_uri:
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        redirect_uri = f"{frontend_url}/planner/google/callback"
     try:
         tokens = exchange_code_for_tokens(code, redirect_uri)
 

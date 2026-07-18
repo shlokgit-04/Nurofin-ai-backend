@@ -1,6 +1,7 @@
 from typing import Any, Optional
 from datetime import datetime, timedelta
 import json
+import os
 import time as _time
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -35,6 +36,32 @@ async def _add_timeline(db: AsyncSession, meeting_id: int, action: str, descript
         metadata_json=json.dumps(metadata) if metadata else None,
     )
     db.add(entry)
+
+
+def _parse_json_list(raw: Any) -> list:
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, list) else []
+        except (json.JSONDecodeError, ValueError):
+            return []
+    return []
+
+
+def _parse_json_str(raw: Any) -> Optional[str]:
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            return str(parsed) if parsed is not None else None
+        except (json.JSONDecodeError, ValueError):
+            return raw
+    return raw
 
 
 async def _create_notification(db: AsyncSession, user_id: int, title: str, message: str, notif_type: NotificationTypeEnum, link: str = None):
@@ -88,14 +115,14 @@ def _serialize_meeting(m: Meeting) -> dict:
         "participants_count": len(participants),
         "mom_summary": m.mom_summary,
         "mom_file_path": m.mom_file_path,
-        "mom_executive_summary": m.mom_executive_summary,
-        "mom_decisions": m.mom_decisions,
-        "mom_action_items": m.mom_action_items,
-        "mom_risks": m.mom_risks,
-        "mom_blockers": m.mom_blockers,
-        "mom_followups": m.mom_followups,
-        "mom_deadlines": m.mom_deadlines,
-        "mom_important_dates": m.mom_important_dates,
+        "mom_executive_summary": _parse_json_str(m.mom_executive_summary),
+        "mom_decisions": _parse_json_list(m.mom_decisions),
+        "mom_action_items": _parse_json_list(m.mom_action_items),
+        "mom_risks": _parse_json_list(m.mom_risks),
+        "mom_blockers": _parse_json_list(m.mom_blockers),
+        "mom_followups": _parse_json_list(m.mom_followups),
+        "mom_deadlines": _parse_json_list(m.mom_deadlines),
+        "mom_important_dates": _parse_json_list(m.mom_important_dates),
         "created_at": m.created_at.isoformat() if m.created_at else None,
     }
 
@@ -574,7 +601,10 @@ async def analyze_mom(
     if not meeting.mom_summary:
         return error_response(message="No MOM uploaded yet")
 
-    ai_engine_url = "http://localhost:8001/api/v1/chat/analyze"
+    ai_engine_url = os.getenv("AI_ENGINE_URL", "").strip()
+    if not ai_engine_url:
+        return error_response(message="AI_ENGINE_URL environment variable is not configured")
+    ai_engine_url = ai_engine_url.rstrip("/") + "/api/v1/chat/analyze"
     prompt = ANALYSIS_PROMPT + meeting.mom_summary
 
     try:

@@ -6,7 +6,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from app.api import deps
-from app.models.user import User
+from app.models.user import User, RoleEnum
 from app.models.deleted_user import DeletedUser
 from app.models.department import Department
 from app.models.role import Role
