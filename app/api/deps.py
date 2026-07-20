@@ -34,14 +34,9 @@ async def get_current_user(
             )
             
     if not user:
-        # Fallback to the first active user for seamless demo experience
-        result = await db.execute(select(User).filter(User.is_active == True))
-        user = result.scalars().first()
-        
-    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials and no fallback user found",
+            detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
