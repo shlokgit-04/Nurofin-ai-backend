@@ -30,6 +30,14 @@ async def get_dashboard_summary(
 
     today_str = datetime.now().strftime('%Y-%m-%d')
 
+    # Total Tasks
+    res = await db.execute(select(func.count(Task.id)).filter(Task.is_deleted == False))
+    total_tasks = res.scalar() or 0
+
+    # Completed Tasks
+    res = await db.execute(select(func.count(Task.id)).filter(Task.status == 'completed', Task.is_deleted == False))
+    completed_tasks = res.scalar() or 0
+
     # Today's Tasks
     res = await db.execute(select(func.count(Task.id)).filter(Task.deadline == today_str, Task.is_deleted == False))
     today_tasks = res.scalar() or 0
@@ -95,6 +103,8 @@ async def get_dashboard_summary(
     data = {
         "activeProjects": active_projects,
         "completedProjects": completed_projects,
+        "totalTasks": total_tasks,
+        "completedTasks": completed_tasks,
         "todayTasks": today_tasks,
         "overdueTasks": overdue_tasks,
         "todayMeetings": today_meetings,
