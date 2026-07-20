@@ -4,6 +4,16 @@ from pydantic import BaseModel
 from app.models.meeting import MeetingStatusEnum, MeetingTypeEnum, ParticipantStatusEnum
 
 
+class MeetingAnalysisResponse(BaseModel):
+    summary: Optional[str] = None
+    key_points: List[str] = []
+    participants: List[str] = []
+    action_items: List[dict] = []
+    decisions: List[str] = []
+    risks: List[str] = []
+    blockers: List[str] = []
+
+
 class MeetingBase(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
@@ -17,6 +27,9 @@ class MeetingBase(BaseModel):
     type: Optional[MeetingTypeEnum] = MeetingTypeEnum.meeting
     status: Optional[MeetingStatusEnum] = MeetingStatusEnum.scheduled
     owner_id: Optional[int] = None
+    transcript: Optional[str] = None
+    minutes_of_meeting: Optional[str] = None
+    metadata_json: Optional[str] = None
 
 
 class MeetingCreate(MeetingBase):
@@ -41,6 +54,10 @@ class MeetingParticipantOut(BaseModel):
 
 class MOMUpload(BaseModel):
     summary: str
+
+
+class TranscriptUpload(BaseModel):
+    transcript: str
 
 
 class MeetingTimelineOut(BaseModel):
@@ -114,6 +131,11 @@ class Meeting(MeetingInDBBase):
     mom_deadlines: Optional[List] = None
     mom_important_dates: Optional[List] = None
     created_by_id: Optional[int] = None
+    transcript: Optional[str] = None
+    ai_summary: Optional[str] = None
+    minutes_of_meeting: Optional[str] = None
+    analysis_status: Optional[str] = None
+    metadata_json: Optional[str] = None
 
     class Config:
         orm_mode = True
