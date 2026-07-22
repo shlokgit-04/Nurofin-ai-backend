@@ -1,0 +1,9 @@
+#!/bin/sh
+echo 'New code pulled! Running database migrations...'
+if [ -d "venv/Scripts" ]; then
+    ./venv/Scripts/alembic upgrade head
+elif [ -d "venv/bin" ]; then
+    ./venv/bin/alembic upgrade head
+else
+    alembic upgrade head
+fi
