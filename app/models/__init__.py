@@ -11,4 +11,5 @@ from .issue import Issue, IssueStatusEnum, IssuePriorityEnum
 from .knowledge import Knowledge
 from .notification import Notification, NotificationTypeEnum
 from .deleted_user import DeletedUser
+from .conversation import Conversation, ConversationMessage
 

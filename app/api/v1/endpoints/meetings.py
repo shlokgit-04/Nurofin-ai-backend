@@ -19,8 +19,9 @@ from app.models.task import Task, TaskStatusEnum, TaskPriorityEnum
 from app.models.notification import Notification, NotificationTypeEnum
 from app.schemas.meeting import (
     MeetingCreate, MeetingUpdate, Meeting as MeetingSchema,
-    MeetingParticipantOut, MOMUpload, MeetingTimelineOut,
+    MeetingParticipantOut, MOMUpload, TranscriptUpload, MeetingTimelineOut,
     MeetingExtractedTaskOut, ExtractedTaskUpdate, BulkApproveRequest,
+    MeetingAnalysisResponse,
 )
 from app.core.responses import APIResponse, success_response, error_response
 
@@ -124,6 +125,11 @@ def _serialize_meeting(m: Meeting) -> dict:
         "mom_deadlines": _parse_json_list(m.mom_deadlines),
         "mom_important_dates": _parse_json_list(m.mom_important_dates),
         "created_at": m.created_at.isoformat() if m.created_at else None,
+        "transcript": m.transcript,
+        "ai_summary": m.ai_summary,
+        "minutes_of_meeting": m.minutes_of_meeting,
+        "analysis_status": m.analysis_status,
+        "metadata_json": m.metadata_json,
     }
 
 
@@ -711,6 +717,268 @@ async def analyze_mom(
             "analysis": analysis,
         },
         message="MOM analysis complete",
+    )
+
+
+TRANSCRIPT_ANALYSIS_PROMPT = """You are an expert meeting analyst. Analyze the following meeting transcript and extract structured data.
+Return ONLY a valid JSON object with exactly these fields (no markdown, no code fences):
+{
+  "summary": "A 2-3 sentence executive summary of the meeting",
+  "key_points": ["key point 1", "key point 2"],
+  "participants": ["participant name 1", "participant name 2"],
+  "action_items": [
+    {"title": "task title", "description": "detailed description", "priority": "high|medium|low", "suggested_owner": "person name or null", "deadline": "date string or null"}
+  ],
+  "decisions": ["decision 1"],
+  "risks": ["risk 1"],
+  "blockers": ["blocker 1"]
+}
+
+If a section has no items, use an empty array [].
+If a field cannot be determined, use null for strings or [] for arrays.
+
+Meeting Transcript:
+"""
+
+
+@router.post("/{id}/analyze", response_model=APIResponse)
+async def analyze_meeting(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    id: int,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    result = await db.execute(
+        select(Meeting)
+        .options(selectinload(Meeting.participant_entries))
+        .filter(Meeting.id == id, Meeting.is_deleted == False)
+    )
+    meeting = result.scalars().first()
+    if not meeting:
+        return error_response(message="Meeting not found")
+
+    content = meeting.transcript or meeting.mom_summary
+    if not content:
+        return error_response(message="No transcript or MOM content available for analysis")
+
+    meeting.analysis_status = "processing"
+    await db.commit()
+
+    ai_engine_url = os.getenv("AI_ENGINE_URL", "").strip()
+    if not ai_engine_url:
+        meeting.analysis_status = "failed"
+        await db.commit()
+        return error_response(message="AI_ENGINE_URL environment variable is not configured")
+
+    ai_url = ai_engine_url.rstrip("/") + "/api/v1/meeting/analyze"
+    prompt = TRANSCRIPT_ANALYSIS_PROMPT + content
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                ai_url,
+                json={
+                    "transcript": content,
+                    "meeting_id": id,
+                    "meeting_title": meeting.title,
+                },
+            )
+            resp.raise_for_status()
+            ai_data = resp.json()
+    except Exception:
+        meeting.analysis_status = "failed"
+        await db.commit()
+        return error_response(message="AI engine unavailable for analysis")
+
+    analysis_result = ai_data.get("data") or ai_data
+    summary = analysis_result.get("summary", "")
+    key_points = analysis_result.get("key_points", [])
+    participants = analysis_result.get("participants", [])
+    action_items = analysis_result.get("action_items", [])
+    decisions = analysis_result.get("decisions", [])
+    risks = analysis_result.get("risks", [])
+    blockers = analysis_result.get("blockers", [])
+
+    meeting.ai_summary = summary
+    meeting.minutes_of_meeting = json.dumps({
+        "summary": summary,
+        "key_points": key_points,
+        "participants": participants,
+        "action_items": action_items,
+        "decisions": decisions,
+        "risks": risks,
+        "blockers": blockers,
+    })
+    meeting.mom_executive_summary = json.dumps(summary)
+    meeting.mom_decisions = json.dumps(decisions)
+    meeting.mom_action_items = json.dumps(action_items)
+    meeting.mom_risks = json.dumps(risks)
+    meeting.mom_blockers = json.dumps(blockers)
+    meeting.analysis_status = "completed"
+
+    extracted_tasks_data = action_items
+    created_tasks = []
+    for item in extracted_tasks_data:
+        if not isinstance(item, dict) or not item.get("title"):
+            continue
+        extracted = MeetingExtractedTask(
+            meeting_id=id,
+            title=item["title"],
+            description=item.get("description"),
+            priority=item.get("priority", "medium"),
+            suggested_owner=item.get("suggested_owner"),
+            deadline=item.get("deadline"),
+            status="pending",
+            confidence=80,
+        )
+        db.add(extracted)
+        await db.flush()
+        created_tasks.append({
+            "id": extracted.id,
+            "title": extracted.title,
+            "priority": extracted.priority,
+            "suggested_owner": extracted.suggested_owner,
+        })
+
+    await _add_timeline(
+        db, id, "meeting_analyzed",
+        f"AI analyzed meeting transcript - {len(created_tasks)} tasks extracted",
+        current_user.id,
+        metadata={"tasks_extracted": len(created_tasks)},
+    )
+
+    await db.commit()
+
+    res = await db.execute(
+        select(Meeting)
+        .options(
+            selectinload(Meeting.participant_entries).selectinload(MeetingParticipant.user),
+            selectinload(Meeting.owner),
+        )
+        .filter(Meeting.id == id)
+    )
+    meeting_loaded = res.scalars().first()
+
+    return success_response(
+        data={
+            **_serialize_meeting(meeting_loaded),
+            "extracted_tasks": created_tasks,
+            "analysis": {
+                "summary": summary,
+                "key_points": key_points,
+                "participants": participants,
+                "action_items": action_items,
+                "decisions": decisions,
+                "risks": risks,
+                "blockers": blockers,
+            },
+        },
+        message="Meeting analysis complete",
+    )
+
+
+@router.get("/{id}/summary", response_model=APIResponse)
+async def get_meeting_summary(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    id: int,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    result = await db.execute(
+        select(Meeting).filter(Meeting.id == id, Meeting.is_deleted == False)
+    )
+    meeting = result.scalars().first()
+    if not meeting:
+        return error_response(message="Meeting not found")
+
+    summary = meeting.ai_summary or meeting.mom_executive_summary
+    if summary:
+        try:
+            summary = json.loads(summary) if summary.startswith('"') else summary
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    return success_response(
+        data={
+            "meeting_id": meeting.id,
+            "title": meeting.title,
+            "summary": summary,
+            "analysis_status": meeting.analysis_status,
+        },
+        message="Meeting summary fetched successfully",
+    )
+
+
+@router.get("/{id}/mom", response_model=APIResponse)
+async def get_meeting_mom(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    id: int,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    result = await db.execute(
+        select(Meeting).filter(Meeting.id == id, Meeting.is_deleted == False)
+    )
+    meeting = result.scalars().first()
+    if not meeting:
+        return error_response(message="Meeting not found")
+
+    mom_data = None
+    if meeting.minutes_of_meeting:
+        try:
+            mom_data = json.loads(meeting.minutes_of_meeting)
+        except (json.JSONDecodeError, ValueError):
+            mom_data = {"raw": meeting.minutes_of_meeting}
+
+    return success_response(
+        data={
+            "meeting_id": meeting.id,
+            "title": meeting.title,
+            "mom": mom_data,
+            "mom_summary": meeting.mom_summary,
+            "analysis_status": meeting.analysis_status,
+        },
+        message="Meeting MoM fetched successfully",
+    )
+
+
+@router.post("/{id}/transcript", response_model=APIResponse)
+async def upload_transcript(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    id: int,
+    transcript_in: TranscriptUpload,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    result = await db.execute(
+        select(Meeting)
+        .options(selectinload(Meeting.participant_entries))
+        .filter(Meeting.id == id, Meeting.is_deleted == False)
+    )
+    meeting = result.scalars().first()
+    if not meeting:
+        return error_response(message="Meeting not found")
+
+    meeting.transcript = transcript_in.transcript
+    meeting.analysis_status = "uploaded"
+
+    await _add_timeline(db, id, "transcript_uploaded", f"Transcript uploaded by {current_user.full_name}", current_user.id)
+
+    await db.commit()
+
+    res = await db.execute(
+        select(Meeting)
+        .options(
+            selectinload(Meeting.participant_entries).selectinload(MeetingParticipant.user),
+            selectinload(Meeting.owner),
+        )
+        .filter(Meeting.id == id)
+    )
+    meeting_loaded = res.scalars().first()
+
+    return success_response(
+        data=_serialize_meeting(meeting_loaded),
+        message="Transcript uploaded successfully",
     )
 
 

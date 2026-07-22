@@ -11,6 +11,13 @@ class MeetingStatusEnum(str, enum.Enum):
     cancelled = "cancelled"
 
 
+class AnalysisStatusEnum(str, enum.Enum):
+    uploaded = "uploaded"
+    processing = "processing"
+    completed = "completed"
+    failed = "failed"
+
+
 class MeetingTypeEnum(str, enum.Enum):
     meeting = "meeting"
     reminder = "reminder"
@@ -107,6 +114,13 @@ class Meeting(Base):
     mom_followups = Column(Text, nullable=True)
     mom_deadlines = Column(Text, nullable=True)
     mom_important_dates = Column(Text, nullable=True)
+
+    # Meeting Intelligence Phase 1 fields
+    transcript = Column(Text, nullable=True)
+    ai_summary = Column(Text, nullable=True)
+    minutes_of_meeting = Column(Text, nullable=True)
+    analysis_status = Column(String, nullable=True)
+    metadata_json = Column(Text, nullable=True)
 
     # Participant relationships
     participant_entries = relationship(
