@@ -4,6 +4,8 @@ from typing import Optional
 class DashboardSummary(BaseModel):
     activeProjects: int
     completedProjects: int
+    totalTasks: int = 0
+    completedTasks: int = 0
     todayTasks: int
     overdueTasks: int
     todayMeetings: int
