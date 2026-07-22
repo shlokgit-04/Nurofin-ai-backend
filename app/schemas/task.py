@@ -28,11 +28,11 @@ class TaskInDBBase(TaskBase):
     id: Optional[int] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class Task(TaskInDBBase):
     assigned_to: Optional[UserBasic] = None
     assigned_by: Optional[UserBasic] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
