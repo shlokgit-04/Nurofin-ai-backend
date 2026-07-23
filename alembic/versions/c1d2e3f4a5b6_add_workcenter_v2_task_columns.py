@@ -37,12 +37,12 @@ def upgrade() -> None:
         op.create_foreign_key('task_parent_id_fkey', 'task', 'task', ['parent_id'], ['id'])
     if not column_exists('task', 'quarter_id'):
         op.add_column('task', sa.Column('quarter_id', sa.Integer(), nullable=True))
-        op.create_foreign_key('task_quarter_id_fkey', 'task', 'quarter', ['quarter_id'], ['id'])
+        # op.create_foreign_key('task_quarter_id_fkey', 'task', 'quarter', ['quarter_id'], ['id'])
 
 
 def downgrade() -> None:
     if column_exists('task', 'quarter_id'):
-        op.drop_constraint('task_quarter_id_fkey', 'task', type_='foreignkey')
+        # op.drop_constraint('task_quarter_id_fkey', 'task', type_='foreignkey')
         op.drop_column('task', 'quarter_id')
     if column_exists('task', 'parent_id'):
         op.drop_constraint('task_parent_id_fkey', 'task', type_='foreignkey')
