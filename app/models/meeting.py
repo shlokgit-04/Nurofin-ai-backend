@@ -72,6 +72,7 @@ class MeetingExtractedTask(Base):
     confidence = Column(Integer, default=80)
     status = Column(String, default="pending")
     real_task_id = Column(Integer, ForeignKey("task.id"), nullable=True)
+    is_deleted = Column(Boolean, default=False)
 
     meeting = relationship("Meeting", back_populates="extracted_tasks")
     real_task = relationship("Task", foreign_keys=[real_task_id])
@@ -90,6 +91,7 @@ class Meeting(Base):
     timezone = Column(String, nullable=True)
     type = Column(Enum(MeetingTypeEnum), default=MeetingTypeEnum.meeting)
     status = Column(Enum(MeetingStatusEnum), default=MeetingStatusEnum.scheduled)
+    is_deleted = Column(Boolean, default=False)
     is_recurring = Column(Boolean, default=False)
     recurrence_rule = Column(String, nullable=True)
 

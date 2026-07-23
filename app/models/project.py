@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Enum, Float, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, DateTime, Enum, Float, ForeignKey, Table, Boolean
 from sqlalchemy.orm import relationship
 import enum
 from app.db.base_class import Base
@@ -28,6 +28,7 @@ class Project(Base):
     name = Column(String, index=True, nullable=False)
     description = Column(String)
     status = Column(Enum(ProjectStatusEnum), default=ProjectStatusEnum.planning)
+    is_deleted = Column(Boolean, default=False)
     start_date = Column(DateTime)
     end_date = Column(DateTime)
     priority = Column(Enum(ProjectPriorityEnum), default=ProjectPriorityEnum.medium)
