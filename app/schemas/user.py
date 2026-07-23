@@ -42,7 +42,7 @@ class UserBasic(BaseModel):
     avatar: Optional[str] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # Additional properties stored in DB
 class UserInDB(UserInDBBase):

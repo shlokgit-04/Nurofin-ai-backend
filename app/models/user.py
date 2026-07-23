@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, Enum
+from sqlalchemy import Column, Integer, String, Boolean, Enum, DateTime
 from sqlalchemy.orm import relationship
 import enum
 from app.db.base_class import Base
@@ -28,7 +28,7 @@ class User(Base):
     # Google Calendar Integration
     google_access_token = Column(String, nullable=True)
     google_refresh_token = Column(String, nullable=True)
-    google_token_expires_at = Column(String, nullable=True)
+    google_token_expires_at = Column(DateTime, nullable=True)
     
     # Relationships
     owned_projects = relationship("Project", back_populates="owner")
