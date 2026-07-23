@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import users, auth, tasks, meetings, projects, dashboard, notifications, planner, conversations, stream
+from app.api.v1.endpoints import users, auth, tasks, meetings, projects, dashboard, notifications, planner, conversations, stream, workcenter
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -12,3 +12,4 @@ api_router.include_router(notifications.router, prefix="/notifications", tags=["
 api_router.include_router(planner.router, prefix="/planner", tags=["planner"])
 api_router.include_router(conversations.router, prefix="/conversations", tags=["conversations"])
 api_router.include_router(stream.router, prefix="/stream", tags=["stream"])
+api_router.include_router(workcenter.router, prefix="/workcenter", tags=["workcenter"])
