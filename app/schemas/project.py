@@ -29,6 +29,7 @@ class ProjectInDBBase(ProjectBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 class Project(ProjectInDBBase):
     owner: Optional[UserBasic] = None
@@ -37,3 +38,4 @@ class Project(ProjectInDBBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True

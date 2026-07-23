@@ -29,6 +29,7 @@ class TaskInDBBase(TaskBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 class Task(TaskInDBBase):
     assigned_to: Optional[UserBasic] = None
@@ -36,3 +37,4 @@ class Task(TaskInDBBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True

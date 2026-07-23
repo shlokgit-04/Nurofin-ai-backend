@@ -30,11 +30,13 @@ class UserInDBBase(UserBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 # Additional properties to return via API
 class User(UserInDBBase):
     class Config:
         orm_mode = True
+        from_attributes = True
 
 class UserBasic(BaseModel):
     id: int
@@ -43,6 +45,7 @@ class UserBasic(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 # Additional properties stored in DB
 class UserInDB(UserInDBBase):
@@ -50,6 +53,7 @@ class UserInDB(UserInDBBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 # Role and Department schemas
 class RoleBase(BaseModel):
@@ -66,6 +70,7 @@ class RoleResponse(RoleBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 class DepartmentBase(BaseModel):
     name: str
@@ -80,3 +85,4 @@ class DepartmentResponse(DepartmentBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True

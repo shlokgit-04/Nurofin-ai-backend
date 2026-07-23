@@ -23,7 +23,9 @@ class NotificationInDBBase(NotificationBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 class Notification(NotificationInDBBase):
     class Config:
         orm_mode = True
+        from_attributes = True

@@ -50,6 +50,7 @@ class MeetingParticipantOut(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 
 class MOMUpload(BaseModel):
@@ -71,6 +72,7 @@ class MeetingTimelineOut(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 
 class MeetingExtractedTaskOut(BaseModel):
@@ -88,6 +90,7 @@ class MeetingExtractedTaskOut(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 
 class ExtractedTaskUpdate(BaseModel):
@@ -107,6 +110,7 @@ class MeetingInDBBase(MeetingBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 
 class Meeting(MeetingInDBBase):
@@ -139,3 +143,4 @@ class Meeting(MeetingInDBBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True

@@ -19,6 +19,7 @@ class ConversationMessageRead(ConversationMessageBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 
 class ConversationBase(BaseModel):
@@ -42,6 +43,7 @@ class ConversationRead(ConversationBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 
 class ConversationListRead(BaseModel):
@@ -54,3 +56,4 @@ class ConversationListRead(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
