@@ -123,7 +123,7 @@ async def read_tasks(
     page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200),
 ) -> Any:
     q = select(Task).options(selectinload(Task.subtasks)).where(Task.is_deleted == False, Task.parent_id == None)
-    if current_user.role.value not in ("ceo", "admin", "super_admin", "manager"):
+    if current_user.role not in ("ceo", "admin", "super_admin", "manager"):
         q = q.where(or_(Task.assigned_to_id == current_user.id, Task.assigned_by_id == current_user.id))
     if quarter_id:
         q = q.where(Task.quarter_id == quarter_id)
@@ -154,7 +154,7 @@ async def get_summary(
     quarter_id: Optional[int] = None,
 ) -> Any:
     base = [Task.is_deleted == False, Task.parent_id == None]
-    if current_user.role.value not in ("ceo", "admin", "super_admin", "manager"):
+    if current_user.role not in ("ceo", "admin", "super_admin", "manager"):
         base.append(or_(Task.assigned_to_id == current_user.id, Task.assigned_by_id == current_user.id))
     if quarter_id:
         base.append(Task.quarter_id == quarter_id)
@@ -189,7 +189,7 @@ async def get_insights(
     base = [Task.is_deleted == False, Task.parent_id == None]
     if quarter_id:
         base.append(Task.quarter_id == quarter_id)
-    if current_user.role.value not in ("ceo", "admin", "super_admin", "manager"):
+    if current_user.role not in ("ceo", "admin", "super_admin", "manager"):
         base.append(or_(Task.assigned_to_id == current_user.id, Task.assigned_by_id == current_user.id))
 
     today = datetime.utcnow().strftime("%Y-%m-%d")
@@ -524,7 +524,7 @@ async def get_performance(
     tasks = [await _serialize_task(db, t) for t in tasks_r.scalars().all()]
 
     return success_response(data={
-        "user": {"id": user.id, "name": user.full_name, "avatar": user.profile_picture, "department": user.department, "role": user.role.value if user.role else None},
+        "user": {"id": user.id, "name": user.full_name, "avatar": user.profile_picture, "department": user.department, "role": user.role if user.role else None},
         "stats": {"totalTasks": total, "completedTasks": completed, "overdueTasks": overdue, "completionPct": pct, "transfersOut": t_out, "transfersIn": t_in},
         "tasks": tasks,
     })
