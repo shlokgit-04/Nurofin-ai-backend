@@ -8,6 +8,7 @@ import os
 from app.api import deps
 from app.models.user import User
 from app.models.meeting import Meeting, MeetingParticipant
+from app.models.task import Task
 from app.core.responses import APIResponse, success_response, error_response
 from app.services.google_calendar import get_google_auth_url, exchange_code_for_tokens, fetch_calendar_events
 
@@ -145,6 +146,33 @@ async def get_user_schedule(
             "end_time": m.end_time,
             "type": m.type.value if m.type else "meeting",
             "status": m.status.value if m.status else "scheduled",
+            "read_only": True
+        })
+
+    # Fetch Tasks for the target user
+    tasks_query = (
+        select(Task)
+        .filter(Task.assigned_to_id == target_user.id)
+        .filter(Task.status != "completed")
+    )
+    if start_date:
+        tasks_query = tasks_query.filter(Task.deadline >= start_date)
+    if end_date:
+        tasks_query = tasks_query.filter(Task.deadline <= end_date)
+
+    tasks_result = await db.execute(tasks_query)
+    tasks = tasks_result.scalars().all()
+
+    for t in tasks:
+        schedule.append({
+            "source": "nurofin_task",
+            "title": t.title,
+            "description": t.description or "",
+            "date": t.deadline,
+            "start_time": "09:00",  # Defaulting task to 9 AM display
+            "end_time": "10:00",
+            "type": "task",
+            "status": t.status.value if t.status else "todo",
             "read_only": True
         })
 
