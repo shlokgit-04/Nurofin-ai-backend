@@ -81,7 +81,7 @@ async def read_projects(
     limit: int = 100,
     current_user: User = Depends(deps.get_current_user)
 ) -> Any:
-    result = await db.execute(
+    stmt = (
         select(Project)
         .options(
             selectinload(Project.members),
@@ -89,9 +89,14 @@ async def read_projects(
             selectinload(Project.tasks).selectinload(Task.assigned_to)
         )
         .filter(Project.is_deleted == False)
-        .offset(skip)
-        .limit(limit)
     )
+    if current_user.role not in ["super_admin", "ceo"]:
+        stmt = stmt.filter(
+            (Project.owner_id == current_user.id) | 
+            (Project.members.any(User.id == current_user.id))
+        )
+        
+    result = await db.execute(stmt.offset(skip).limit(limit))
     projects = result.scalars().all()
     data = [_serialize_project(p) for p in projects]
     return success_response(data=data, message="Projects fetched successfully")

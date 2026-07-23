@@ -24,6 +24,8 @@ from app.schemas.meeting import (
     MeetingAnalysisResponse,
 )
 from app.core.responses import APIResponse, success_response, error_response
+from app.services.google_calendar import fetch_calendar_events
+from datetime import timezone
 
 router = APIRouter()
 
@@ -179,6 +181,13 @@ async def read_meetings(
         )
         .filter(Meeting.is_deleted == False)
     )
+    
+    if current_user.role not in ["super_admin", "ceo"]:
+        stmt = stmt.outerjoin(MeetingParticipant, MeetingParticipant.meeting_id == Meeting.id)
+        stmt = stmt.filter(
+            (Meeting.owner_id == current_user.id) | 
+            (MeetingParticipant.user_id == current_user.id)
+        )
 
     if filter:
         today_date = datetime.now()
@@ -211,6 +220,41 @@ async def read_meetings(
     meetings = result.scalars().unique().all()
 
     data = [_serialize_meeting(m) for m in meetings]
+
+    # Fetch Google Calendar Events if connected
+    if current_user.google_access_token and current_user.google_refresh_token:
+        time_min = datetime.now(timezone.utc)
+        time_max = time_min + timedelta(days=7)
+        if filter == "today":
+            time_max = datetime.now(timezone.utc).replace(hour=23, minute=59, second=59)
+        elif filter == "monthly":
+            time_max = time_min + timedelta(days=30)
+            
+        try:
+            google_events = fetch_calendar_events(current_user, time_min, time_max)
+            for item in google_events:
+                start = item['start'].get('dateTime', item['start'].get('date'))
+                end = item['end'].get('dateTime', item['end'].get('date'))
+                data.append({
+                    "id": item.get("id"),
+                    "title": item.get('summary', 'Busy'),
+                    "description": item.get('description', ''),
+                    "date": start[:10] if start else "",
+                    "start_time": start[11:16] if start and len(start) > 10 else "00:00",
+                    "end_time": end[11:16] if end and len(end) > 10 else "00:00",
+                    "type": "google_event",
+                    "status": "scheduled",
+                    "source": "google_calendar"
+                })
+        except Exception as e:
+            print(f"Failed to fetch Google Calendar: {e}")
+
+    # Sort combined data
+    if sort == "date" or not sort:
+        data.sort(key=lambda x: x.get("date", ""), reverse=True)
+    elif sort == "title":
+        data.sort(key=lambda x: x.get("title", ""))
+
     return success_response(data=data, message="Events fetched successfully")
 
 
@@ -244,6 +288,64 @@ async def read_meeting(
     return success_response(data=data, message="Event fetched successfully")
 
 
+def get_alternative_times(busy_blocks: list, req_date_str: str, req_duration_minutes: int, start_hour: int = 9, end_hour: int = 17) -> list:
+    suggestions = []
+    
+    dates_to_check = [
+        datetime.strptime(req_date_str, "%Y-%m-%d").date(),
+        (datetime.strptime(req_date_str, "%Y-%m-%d") + timedelta(days=1)).date()
+    ]
+    
+    for check_date in dates_to_check:
+        if len(suggestions) >= 3:
+            break
+            
+        current_time = datetime.combine(check_date, datetime.min.time()).replace(hour=start_hour, minute=0)
+        end_of_day = datetime.combine(check_date, datetime.min.time()).replace(hour=end_hour, minute=0)
+        
+        day_blocks = []
+        for b in busy_blocks:
+            if "start_time" in b and "end_time" in b:
+                try:
+                    b_start = datetime.combine(check_date, datetime.strptime(b["start_time"], "%H:%M").time())
+                    b_end = datetime.combine(check_date, datetime.strptime(b["end_time"], "%H:%M").time())
+                    day_blocks.append((b_start, b_end))
+                except: pass
+            elif "start" in b and "end" in b:
+                try:
+                    b_s = datetime.fromisoformat(b["start"].replace('Z', '+00:00'))
+                    b_e = datetime.fromisoformat(b["end"].replace('Z', '+00:00'))
+                    if b_s.date() == check_date:
+                        b_start = b_s.replace(tzinfo=None)
+                        b_end = b_e.replace(tzinfo=None)
+                        day_blocks.append((b_start, b_end))
+                except: pass
+                
+        day_blocks.sort(key=lambda x: x[0])
+        
+        while current_time + timedelta(minutes=req_duration_minutes) <= end_of_day:
+            slot_end = current_time + timedelta(minutes=req_duration_minutes)
+            
+            conflict = False
+            for bs, be in day_blocks:
+                if (current_time < be and slot_end > bs):
+                    conflict = True
+                    current_time = be
+                    break
+            
+            if not conflict:
+                suggestions.append({
+                    "date": check_date.strftime("%Y-%m-%d"),
+                    "start_time": current_time.strftime("%H:%M"),
+                    "end_time": slot_end.strftime("%H:%M")
+                })
+                current_time = slot_end
+                if len(suggestions) >= 3:
+                    break
+                    
+    return suggestions
+
+
 @router.post("", response_model=APIResponse)
 async def create_meeting(
     *,
@@ -251,8 +353,89 @@ async def create_meeting(
     meeting_in: MeetingCreate,
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
-    meeting_data = meeting_in.dict(exclude_unset=True, exclude={"participant_ids"})
     participant_ids = meeting_in.participant_ids or []
+    
+    # --- Conflict Detection ---
+    if meeting_in.date and meeting_in.start_time and meeting_in.end_time:
+        all_ids = set(participant_ids)
+        all_ids.add(current_user.id)
+        
+        try:
+            req_start_dt = datetime.strptime(meeting_in.start_time, "%H:%M")
+            req_end_dt = datetime.strptime(meeting_in.end_time, "%H:%M")
+            duration_mins = int((req_end_dt - req_start_dt).total_seconds() / 60)
+            if duration_mins <= 0:
+                duration_mins = 60
+        except:
+            duration_mins = 60
+            
+        busy_blocks = []
+        try:
+            time_min = datetime.fromisoformat(meeting_in.date + "T00:00:00+00:00")
+            time_max = datetime.fromisoformat(meeting_in.date + "T23:59:59+00:00")
+            
+            for uid in all_ids:
+                # fetch Nurofin local
+                local_query = (
+                    select(Meeting)
+                    .outerjoin(MeetingParticipant, MeetingParticipant.meeting_id == Meeting.id)
+                    .filter((Meeting.owner_id == uid) | (MeetingParticipant.user_id == uid))
+                    .filter(Meeting.is_deleted == False)
+                    .filter(Meeting.date == meeting_in.date)
+                )
+                local_result = await db.execute(local_query)
+                local_meetings = local_result.scalars().all()
+                for m in local_meetings:
+                    busy_blocks.append({"start_time": m.start_time, "end_time": m.end_time})
+                
+                # fetch Google Calendar
+                user_result = await db.execute(select(User).filter(User.id == uid))
+                u = user_result.scalars().first()
+                if u and u.google_access_token and u.google_refresh_token:
+                    try:
+                        g_events = fetch_calendar_events(u, time_min, time_max)
+                        for item in g_events:
+                            st = item['start'].get('dateTime', item['start'].get('date'))
+                            et = item['end'].get('dateTime', item['end'].get('date'))
+                            busy_blocks.append({"start": st, "end": et})
+                    except:
+                        pass
+                        
+            # Check if the requested time overlaps with any busy block
+            conflict = False
+            req_start_time = datetime.strptime(meeting_in.start_time, "%H:%M").time()
+            req_end_time = datetime.strptime(meeting_in.end_time, "%H:%M").time()
+            for b in busy_blocks:
+                if "start_time" in b and "end_time" in b:
+                    b_start = datetime.strptime(b["start_time"], "%H:%M").time()
+                    b_end = datetime.strptime(b["end_time"], "%H:%M").time()
+                    if req_start_time < b_end and req_end_time > b_start:
+                        conflict = True
+                        break
+                elif "start" in b and "end" in b:
+                    b_s = datetime.fromisoformat(b["start"].replace('Z', '+00:00')).time()
+                    b_e = datetime.fromisoformat(b["end"].replace('Z', '+00:00')).time()
+                    if req_start_time < b_e and req_end_time > b_s:
+                        conflict = True
+                        break
+                        
+            if conflict:
+                suggestions = get_alternative_times(busy_blocks, meeting_in.date, duration_mins)
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "message": "At this time there's already a meet or schedule for one of the participants. Can we schedule it at another time?",
+                        "alternative_times": suggestions
+                    }
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"Error checking conflicts: {e}")
+            pass # ignore general parse errors and continue
+    # --- End Conflict Detection ---
+
+    meeting_data = meeting_in.dict(exclude_unset=True, exclude={"participant_ids"})
     db_meeting = Meeting(**meeting_data, owner_id=current_user.id, created_by_id=current_user.id)
     db.add(db_meeting)
     await db.flush()
